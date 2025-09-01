@@ -85,47 +85,15 @@ done
 echo -e "\n[17] Usuarios genéricos o por defecto:"
 grep -E "^(root|guest|test|user|admin)" /etc/passwd || echo "No se detectaron usuarios genéricos comunes."
 
-#17.2 
-printf "%-20s %-10s\n" "USUARIO" "ESTADO"
-echo "------------------------------------"
-
-# Recorre todos los usuarios locales (UID >= 1000 para excluir cuentas de sistema)
-for user in $(getent passwd | awk -F: '$3 >= 1 {print $1}'); do
-    estado=$(sudo passwd -S "$user" 2>/dev/null | awk '{print $2}')
-    case "$estado" in
-        P)  status="ACTIVO" ;;
-        L|LK) status="INACTIVO" ;;
-        NP) status="INACTIVO (SIN CONTRASEÑA)" ;;
-        *)  status="$estado" ;;
-    esac
- 
-    printf "%-20s %-10s\n" "$user" "$status"
-done
-
-# 18. Estado de usuarios (activos/inactivos con tabla)
+# 18. Estado de usuarios (activos/inactivos)
 echo -e "\n[18] Estado de usuarios (activos/inactivos):"
-printf "%-20s %-15s %-15s %-10s\n" "Usuario" "Estado" "Último cambio" "Activo?"
-printf "%-20s %-15s %-15s %-10s\n" "-------------------" "-------------" "-------------" "-------"
-
-while IFS= read -r user; do
-    info=$(passwd -S "$user" 2>/dev/null)
-    if [ -n "$info" ]; then
-        username=$(echo "$info" | awk '{print $1}')
-        status=$(echo "$info" | awk '{print $2}')
-        last_change=$(echo "$info" | awk '{print $3}')
-        
-        # Traducir estado
-        case "$status" in
-            P) estado="Con contraseña" ; activo="Sí" ;;
-            NP) estado="Sin contraseña" ; activo="No" ;;
-            LK|L) estado="Bloqueado" ; activo="No" ;;
-            *) estado="Desconocido" ; activo="?" ;;
-        esac
-        
-        printf "%-20s %-15s %-15s %-10s\n" "$username" "$estado" "$last_change" "$activo"
-    fi
-done < <(cut -d: -f1 /etc/passwd)
+for user in $(cut -d: -f1 /etc/passwd); do
+    passwd -S $user 2>/dev/null
+done
 
 echo -e "\n========================================"
 echo " FIN DE AUDITORÍA "
 echo "========================================"
+
+
+-----------------------------------------------------------------------
