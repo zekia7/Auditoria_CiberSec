@@ -90,7 +90,7 @@ printf "%-20s %-10s\n" "USUARIO" "ESTADO"
 echo "------------------------------------"
 
 # Recorre todos los usuarios locales (UID >= 1000 para excluir cuentas de sistema)
-for user in $(getent passwd | awk -F: '$3 >= 1000 {print $1}'); do
+for user in $(getent passwd | awk -F: '$3 >= 1 {print $1}'); do
     estado=$(sudo passwd -S "$user" 2>/dev/null | awk '{print $2}')
     case "$estado" in
         P)  status="ACTIVO" ;;
