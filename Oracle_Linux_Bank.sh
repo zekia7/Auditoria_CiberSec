@@ -1,96 +1,78 @@
 #!/bin/bash
 
 echo "========================================"
-echo " AUDITORÍA DE SERVIDOR ORACLE LINUX "
+echo " AUDITORÍA DE SERVIDOR ORACLE LINUX"
 echo "========================================"
 
-# 1. Servicios activos
-echo -e "\n[1] Servicios activos:"
-systemctl list-units --type=service --state=running
+# 1. Revisión de integridad de binarios críticos
+echo -e "\n[1] Revisión de integridad de binarios críticos"
+binarios=("/bin/ls" "/bin/bash" "/usr/bin/ssh" "/usr/bin/sudo")
+for bin in "${binarios[@]}"; do
+    if [ -f "$bin" ]; then
+        echo "  - $bin:"
+        sha256sum "$bin"
+    else
+        echo "  - $bin no encontrado."
+    fi
+done
 
-# 2. Versión del servidor
-echo -e "\n[2] Versión del servidor:"
-cat /etc/os-release
+# 2. Estado y configuración de SELinux o AppArmor
+echo -e "\n[2] Estado y configuración de SELinux o AppArmor"
+if command -v getenforce &>/dev/null; then
+    echo "  SELinux: $(getenforce)"
+    sestatus
+elif command -v aa-status &>/dev/null; then
+    echo "  AppArmor:"
+    sudo aa-status
+else
+    echo "  Ningún sistema de control (SELinux/AppArmor) encontrado."
+fi
 
-# 3. Carpetas con permisos 777
-echo -e "\n[3] Carpetas con permisos 777:"
-find / -type d -perm 0777 2>/dev/null
+# 3. Reglas de acceso a la red (mínimo privilegio)
+echo -e "\n[3] Revisión de reglas de acceso a la red"
+if command -v firewall-cmd &>/dev/null; then
+    echo "  FirewallD:"
+    sudo firewall-cmd --list-all
+elif command -v iptables &>/dev/null; then
+    echo "  Iptables:"
+    sudo iptables -L -n -v
+else
+    echo "  No se detectó firewall configurado."
+fi
 
-# 4. Puertos abiertos
-echo -e "\n[4] Puertos abiertos:"
-ss -tuln
-
-# 5. Espacio en disco
-echo -e "\n[5] Espacio en disco:"
-df -h
-
-# 6. Rendimiento de la memoria y swap
-echo -e "\n[6] Rendimiento de memoria y configuración de swap:"
+# 4. Evaluación de rendimiento de memoria y swap
+echo -e "\n[4] Rendimiento de memoria y swap"
 free -h
 swapon --show
 
-# 7. Usuarios locales
-echo -e "\n[7] Usuarios locales en el sistema:"
-cut -d: -f1 /etc/passwd
+# 5. Usuarios del sistema
+echo -e "\n[5] Revisión de usuarios del sistema"
+while IFS=: read -r username password uid gid gecos home shell; do
+    if [ "$uid" -ge 1000 ] && [ "$username" != "nobody" ]; then
+        echo "----------------------------------------"
+        echo " Usuario: $username"
+        echo " UID: $uid | GID: $gid | Home: $home | Shell: $shell"
+        
+        # Estado de la cuenta
+        passwd_status=$(passwd -S "$username" 2>/dev/null | awk '{print $2}')
+        case $passwd_status in
+            L) status="❌ Bloqueado/Desactivado" ;;
+            P) status="✅ Activo (con contraseña)" ;;
+            NP) status="⚠️ Activo (sin contraseña)" ;;
+            *) status="Estado desconocido" ;;
+        esac
+        echo " Estado de la cuenta: $status"
 
-# 8. Grupos de usuarios
-echo -e "\n[8] Grupos de usuarios:"
-cut -d: -f1 /etc/group
+        # Detalles de contraseña y expiración
+        echo " --- Detalles de contraseña (chage -l) ---"
+        chage -l "$username"
+    fi
+done < /etc/passwd
 
-# 9. Usuarios dentro de cada grupo
-echo -e "\n[9] Usuarios en cada grupo:"
-getent group | while IFS=: read -r group _ gid members; do
-    echo "Grupo: $group"
-    echo "Usuarios: $members"
-    echo "-----------------------------"
-done
-
-# 10. Usuarios con privilegios sudo
-echo -e "\n[10] Usuarios con privilegios de sudo:"
-getent group sudo || getent group wheel
-
-# 11. Listado de iptables
-echo -e "\n[11] Reglas de iptables:"
-iptables -L -n -v
-
-# 12. Configuración de firewall (firewalld si aplica)
-echo -e "\n[12] Configuración del firewall:"
-if systemctl is-active --quiet firewalld; then
-    firewall-cmd --list-all
-else
-    echo "Firewalld no está activo."
-fi
-
-# 13. Actualizaciones pendientes
-echo -e "\n[13] Actualizaciones pendientes:"
-dnf check-update || echo "No se encontraron actualizaciones pendientes."
-
-# 14. Logs de auditoría (auditd)
-echo -e "\n[14] Estado de logs de auditoría:"
-systemctl is-active auditd && echo "Auditd está activo." || echo "Auditd NO está activo."
-
-# 15. Parámetros de contraseña globales
-echo -e "\n[15] Parámetros de contraseñas (login.defs):"
-grep -E "PASS_MAX_DAYS|PASS_MIN_DAYS|PASS_WARN_AGE|PASS_MIN_LEN" /etc/login.defs
-
-# 16. Parámetros de contraseñas por usuario (chage)
-echo -e "\n[16] Parámetros de contraseñas por usuario (detalles con chage):"
-for user in $(cut -d: -f1 /etc/passwd); do
-    echo "---------------------------------------------"
-    echo "Usuario: $user"
-    chage -l $user
-done
-
-# 17. Usuarios genéricos o default
-echo -e "\n[17] Usuarios genéricos o por defecto:"
-grep -E "^(root|guest|test|user|admin)" /etc/passwd || echo "No se detectaron usuarios genéricos comunes."
-
-# 18. Estado de usuarios (activos/inactivos)
-echo -e "\n[18] Estado de usuarios (activos/inactivos):"
-for user in $(cut -d: -f1 /etc/passwd); do
-    passwd -S $user 2>/dev/null
-done
+# 6. Grupos y sus miembros
+echo -e "\n[6] Revisión de grupos de usuarios"
+getent group | awk -F: '{printf " Grupo: %-20s | GID: %-5s | Miembros: %s\n", $1, $3, $4}'
 
 echo -e "\n========================================"
-echo " FIN DE AUDITORÍA "
+echo " FIN DE AUDITORÍA"
 echo "========================================"
