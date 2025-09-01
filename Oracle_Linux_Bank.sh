@@ -85,6 +85,23 @@ done
 echo -e "\n[17] Usuarios genéricos o por defecto:"
 grep -E "^(root|guest|test|user|admin)" /etc/passwd || echo "No se detectaron usuarios genéricos comunes."
 
+#17.2 
+printf "%-20s %-10s\n" "USUARIO" "ESTADO"
+echo "------------------------------------"
+
+# Recorre todos los usuarios locales (UID >= 1000 para excluir cuentas de sistema)
+for user in $(getent passwd | awk -F: '$3 >= 1000 {print $1}'); do
+    estado=$(sudo passwd -S "$user" 2>/dev/null | awk '{print $2}')
+    case "$estado" in
+        P)  status="ACTIVO" ;;
+        L|LK) status="INACTIVO" ;;
+        NP) status="INACTIVO (SIN CONTRASEÑA)" ;;
+        *)  status="$estado" ;;
+    esac
+ 
+    printf "%-20s %-10s\n" "$user" "$status"
+done
+
 # 18. Estado de usuarios (activos/inactivos con tabla)
 echo -e "\n[18] Estado de usuarios (activos/inactivos):"
 printf "%-20s %-15s %-15s %-10s\n" "Usuario" "Estado" "Último cambio" "Activo?"
