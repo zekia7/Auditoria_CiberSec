@@ -1,111 +1,96 @@
 #!/bin/bash
-# Auditoría básica de un servidor Oracle Linux
-# Autor: ChatGPT - versión extendida con detalle de usuarios
 
-OUTPUT="reporte_auditoria_linux.txt"
-> $OUTPUT
+echo "========================================"
+echo " AUDITORÍA DE SERVIDOR ORACLE LINUX "
+echo "========================================"
 
-echo "========================================" | tee -a $OUTPUT
-echo "   REPORTE DE AUDITORÍA - ORACLE LINUX  " | tee -a $OUTPUT
-echo " Generado el: $(date)" | tee -a $OUTPUT
-echo "========================================" | tee -a $OUTPUT
-echo "" | tee -a $OUTPUT
+# 1. Servicios activos
+echo -e "\n[1] Servicios activos:"
+systemctl list-units --type=service --state=running
 
-#############################################
-# 1. Versión del Servidor
-#############################################
-echo ">>> Versión del Servidor" | tee -a $OUTPUT
-cat /etc/*release | tee -a $OUTPUT
-echo "" | tee -a $OUTPUT
+# 2. Versión del servidor
+echo -e "\n[2] Versión del servidor:"
+cat /etc/os-release
 
-#############################################
-# 2. Servicios Activos
-#############################################
-echo ">>> Servicios Activos" | tee -a $OUTPUT
-systemctl list-units --type=service --state=running | tee -a $OUTPUT
-echo "" | tee -a $OUTPUT
+# 3. Carpetas con permisos 777
+echo -e "\n[3] Carpetas con permisos 777:"
+find / -type d -perm 0777 2>/dev/null
 
-#############################################
-# 3. Puertos Abiertos
-#############################################
-echo ">>> Puertos Abiertos" | tee -a $OUTPUT
-ss -tulnp | tee -a $OUTPUT
-echo "" | tee -a $OUTPUT
+# 4. Puertos abiertos
+echo -e "\n[4] Puertos abiertos:"
+ss -tuln
 
-#############################################
-# 4. Usuarios Locales y Detalle
-#############################################
-echo ">>> Usuarios Locales y su Detalle" | tee -a $OUTPUT
-echo "----------------------------------------" | tee -a $OUTPUT
+# 5. Espacio en disco
+echo -e "\n[5] Espacio en disco:"
+df -h
 
-for user in $(cut -d: -f1 /etc/passwd); do
-    STATUS=$(passwd -S $user 2>/dev/null | awk '{print $2}')
-    case $STATUS in
-        P) USER_STATUS="Activo (Password válido)" ;;
-        L) USER_STATUS="Bloqueado" ;;
-        NP) USER_STATUS="Sin contraseña" ;;
-        *) USER_STATUS="Desconocido" ;;
-    esac
-    
-    echo "Usuario: $user" | tee -a $OUTPUT
-    echo "Estado: $USER_STATUS" | tee -a $OUTPUT
-    echo "---- Detalle de contraseñas y expiración ----" | tee -a $OUTPUT
-    chage -l $user 2>/dev/null | tee -a $OUTPUT
-    echo "----------------------------------------" | tee -a $OUTPUT
+# 6. Rendimiento de la memoria y swap
+echo -e "\n[6] Rendimiento de memoria y configuración de swap:"
+free -h
+swapon --show
+
+# 7. Usuarios locales
+echo -e "\n[7] Usuarios locales en el sistema:"
+cut -d: -f1 /etc/passwd
+
+# 8. Grupos de usuarios
+echo -e "\n[8] Grupos de usuarios:"
+cut -d: -f1 /etc/group
+
+# 9. Usuarios dentro de cada grupo
+echo -e "\n[9] Usuarios en cada grupo:"
+getent group | while IFS=: read -r group _ gid members; do
+    echo "Grupo: $group"
+    echo "Usuarios: $members"
+    echo "-----------------------------"
 done
-echo "" | tee -a $OUTPUT
 
-#############################################
-# 5. Usuarios con privilegios de sudo
-#############################################
-echo ">>> Usuarios con privilegios de SUDO" | tee -a $OUTPUT
-getent group wheel | awk -F: '{print $4}' | tr ',' '\n' | tee -a $OUTPUT
-echo "" | tee -a $OUTPUT
+# 10. Usuarios con privilegios sudo
+echo -e "\n[10] Usuarios con privilegios de sudo:"
+getent group sudo || getent group wheel
 
-#############################################
-# 6. Carpetas con permisos 777
-#############################################
-echo ">>> Carpetas con permisos 777" | tee -a $OUTPUT
-find / -type d -perm 777 2>/dev/null | tee -a $OUTPUT
-echo "" | tee -a $OUTPUT
+# 11. Listado de iptables
+echo -e "\n[11] Reglas de iptables:"
+iptables -L -n -v
 
-#############################################
-# 7. Configuración de Firewall
-#############################################
-echo ">>> Reglas de Firewall (iptables / firewalld)" | tee -a $OUTPUT
-iptables -L -n -v 2>/dev/null | tee -a $OUTPUT
-firewall-cmd --list-all 2>/dev/null | tee -a $OUTPUT
-echo "" | tee -a $OUTPUT
+# 12. Configuración de firewall (firewalld si aplica)
+echo -e "\n[12] Configuración del firewall:"
+if systemctl is-active --quiet firewalld; then
+    firewall-cmd --list-all
+else
+    echo "Firewalld no está activo."
+fi
 
-#############################################
-# 8. Logs de Auditoría
-#############################################
-echo ">>> Estado de los logs de auditoría" | tee -a $OUTPUT
-systemctl status auditd | tee -a $OUTPUT
-echo "" | tee -a $OUTPUT
+# 13. Actualizaciones pendientes
+echo -e "\n[13] Actualizaciones pendientes:"
+dnf check-update || echo "No se encontraron actualizaciones pendientes."
 
-#############################################
-# 9. Espacio en Disco
-#############################################
-echo ">>> Espacio en Disco" | tee -a $OUTPUT
-df -h | tee -a $OUTPUT
-echo "" | tee -a $OUTPUT
+# 14. Logs de auditoría (auditd)
+echo -e "\n[14] Estado de logs de auditoría:"
+systemctl is-active auditd && echo "Auditd está activo." || echo "Auditd NO está activo."
 
-#############################################
-# 10. Memoria y SWAP
-#############################################
-echo ">>> Uso de Memoria y Swap" | tee -a $OUTPUT
-free -h | tee -a $OUTPUT
-swapon --show | tee -a $OUTPUT
-echo "" | tee -a $OUTPUT
+# 15. Parámetros de contraseña globales
+echo -e "\n[15] Parámetros de contraseñas (login.defs):"
+grep -E "PASS_MAX_DAYS|PASS_MIN_DAYS|PASS_WARN_AGE|PASS_MIN_LEN" /etc/login.defs
 
-#############################################
-# 11. Actualizaciones pendientes
-#############################################
-echo ">>> Actualizaciones pendientes del SO" | tee -a $OUTPUT
-dnf check-update 2>/dev/null | tee -a $OUTPUT
-echo "" | tee -a $OUTPUT
+# 16. Parámetros de contraseñas por usuario (chage)
+echo -e "\n[16] Parámetros de contraseñas por usuario (detalles con chage):"
+for user in $(cut -d: -f1 /etc/passwd); do
+    echo "---------------------------------------------"
+    echo "Usuario: $user"
+    chage -l $user
+done
 
-echo "========================================" | tee -a $OUTPUT
-echo "   FIN DEL REPORTE DE AUDITORÍA          " | tee -a $OUTPUT
-echo "========================================" | tee -a $OUTPUT
+# 17. Usuarios genéricos o default
+echo -e "\n[17] Usuarios genéricos o por defecto:"
+grep -E "^(root|guest|test|user|admin)" /etc/passwd || echo "No se detectaron usuarios genéricos comunes."
+
+# 18. Estado de usuarios (activos/inactivos)
+echo -e "\n[18] Estado de usuarios (activos/inactivos):"
+for user in $(cut -d: -f1 /etc/passwd); do
+    passwd -S $user 2>/dev/null
+done
+
+echo -e "\n========================================"
+echo " FIN DE AUDITORÍA "
+echo "========================================"
