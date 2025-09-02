@@ -104,7 +104,6 @@ for user in $(cut -d: -f1 /etc/passwd); do
 done
 
 #19. Estados de los Usuarios - Estatus
-#!/bin/bash
 # usuarios_shadow_estado.sh
 # Muestra usuario, UID, valor de shadow y estatus
  
