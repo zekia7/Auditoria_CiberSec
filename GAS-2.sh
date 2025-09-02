@@ -1,29 +1,3 @@
-#17.2 | Recorre todos los usuarios locales (UID >= 1000 para excluir cuentas de sistema)
- 
-printf "%-20s %-10s\n" "USUARIO" "ESTADO"
- 
-echo "------------------------------------"
- 
-for user in $(getent passwd | awk -F: '$3 >= 1 {print $1}'); do
- 
-    estado=$(sudo passwd -S "$user" 2>/dev/null | awk '{print $2}')
- 
-    case "$estado" in
- 
-        P)  status="ACTIVO" ;;
- 
-        L|LK) status="INACTIVO" ;;
- 
-        NP) status="INACTIVO (SIN CONTRASEÑA)" ;;
- 
-        *)  status="$estado" ;;
- 
-    esac
- 
-    printf "%-20s %-10s\n" "$user" "$status"
- 
-done
- 
  
 #!/bin/bash
  
@@ -186,6 +160,33 @@ for user in $(getent passwd | awk -F: '$3 >= 1 {print $1}'); do
     printf "%-20s %-10s\n" "$user" "$status"
  
 done
+
+#17.2 | Recorre todos los usuarios locales (UID >= 1000 para excluir cuentas de sistema)
+ 
+printf "%-20s %-10s\n" "USUARIO" "ESTADO"
+ 
+echo "------------------------------------"
+ 
+for user in $(getent passwd | awk -F: '$3 >= 1 {print $1}'); do
+ 
+    estado=$(sudo passwd -S "$user" 2>/dev/null | awk '{print $2}')
+ 
+    case "$estado" in
+ 
+        P)  status="ACTIVO" ;;
+ 
+        L|LK) status="INACTIVO" ;;
+ 
+        NP) status="INACTIVO (SIN CONTRASEÑA)" ;;
+ 
+        *)  status="$estado" ;;
+ 
+    esac
+ 
+    printf "%-20s %-10s\n" "$user" "$status"
+ 
+done
+ 
  
 # 18. Estado de usuarios (activos/inactivos con tabla)
  
