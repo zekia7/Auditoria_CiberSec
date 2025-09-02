@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "========================================"
-echo " AUDITORÍA SERVIDOR X ORACLE LINUX -GAS "
+echo " AUDITORÍA DE SERVIDOR ORACLE LINUX "
 echo "========================================"
 
 # 1. Servicios activos
@@ -30,20 +30,8 @@ free -h
 swapon --show
 
 # 7. Usuarios locales
-echo -e "\n[7] Usuarios locales en el sistema (con estado):"
-printf "%-20s %-25s\n" "USUARIO" "ESTADO"
-echo "---------------------------------------------------"
-
-for user in $(cut -d: -f1 /etc/passwd); do
-    estado=$(passwd -S "$user" 2>/dev/null | awk '{print $2}')
-    case "$estado" in
-        P)  status="ACTIVO (con contraseña)" ;;
-        L|LK) status="INACTIVO (bloqueado)" ;;
-        NP) status="INACTIVO (sin contraseña)" ;;
-        *)  status="DESCONOCIDO ($estado)" ;;
-    esac
-    printf "%-20s %-25s\n" "$user" "$status"
-done
+echo -e "\n[7] Usuarios locales en el sistema:"
+cut -d: -f1 /etc/passwd
 
 # 8. Grupos de usuarios
 echo -e "\n[8] Grupos de usuarios:"
@@ -106,5 +94,6 @@ done
 echo -e "\n========================================"
 echo " FIN DE AUDITORÍA "
 echo "========================================"
+
 
 -----------------------------------------------------------------------
